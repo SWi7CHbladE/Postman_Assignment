@@ -23,7 +23,7 @@ unstable_counter = 0
 
 @app.route("/login", methods=["POST"])
 def login():
-    return jsonify({"token": "abc123"})
+    return jsonify({"token": "abc123", "expires_in": 60})  # token with expiry
 
 @app.route("/protected", methods=["GET"])
 def protected():
@@ -35,7 +35,12 @@ def protected():
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
-    return jsonify({"username": data.get("username"), "email": data.get("email")})
+    return jsonify({
+        "id": random.randint(1000, 9999),
+        "username": data.get("username"),
+        "email": data.get("email"),
+        "createdAt": datetime.utcnow().isoformat() + "Z"
+    })
 
 @app.route("/user/<int:user_id>", methods=["GET"])
 def get_user(user_id):
@@ -54,7 +59,12 @@ def get_user_with_company(user_id):
 
 @app.route("/book/<int:book_id>", methods=["GET"])
 def get_book(book_id):
-    return jsonify({"id": book_id, "title": "API Testing with Postman"})
+    return jsonify({
+        "id": book_id,
+        "title": "API Testing with Postman",
+        "authors": ["Jane Doe", "John Smith"],
+        "published": True
+    })
 
 @app.route("/items", methods=["GET"])
 def get_items():
@@ -87,9 +97,9 @@ def event():
 def order(order_id):
     return jsonify({
         "id": order_id,
-        "amount": 250,
+        "amount": random.randint(50, 500),
         "currency": "USD",
-        "status": "confirmed"
+        "status": random.choice(["confirmed", "pending"])
     })
 
 @app.route("/sorted-users", methods=["GET"])
