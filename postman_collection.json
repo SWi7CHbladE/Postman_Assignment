@@ -1,0 +1,270 @@
+{
+  "info": {
+    "name": "Flask API Practice Collection",
+    "_postman_id": "12345678-abcd-efgh-ijkl-987654321000",
+    "description": "Complete collection with basic + advanced tests for your Flask API server.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/login"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "pm.environment.set(\"authToken\", res.token);",
+              "postman.setNextRequest(\"Protected\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ],
+        "url": "{{base_url}}/protected"
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+              "postman.setNextRequest(\"Register\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\"\n}"
+        },
+        "url": "{{base_url}}/register"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.environment.set(\"username\", \"user_\" + Math.floor(Math.random() * 1000));",
+              "pm.environment.set(\"email\", \"test\" + Math.floor(Math.random() * 1000) + \"@mail.com\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "pm.test(\"Echoed username matches\", () => pm.expect(res.username).to.eql(pm.environment.get(\"username\")));",
+              "postman.setNextRequest(\"User\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "request": { "method": "GET", "url": "{{base_url}}/user/101" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "pm.test(\"id is number\", () => pm.expect(res.id).to.be.a(\"number\"));",
+              "pm.test(\"email contains @\", () => pm.expect(res.email).to.include(\"@\"));",
+              "pm.test(\"roles not empty\", () => pm.expect(res.roles).to.be.an(\"array\").that.is.not.empty);",
+              "postman.setNextRequest(\"Users/1\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users/1",
+      "request": { "method": "GET", "url": "{{base_url}}/users/1" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "pm.environment.set(\"company1\", res.company.name);",
+              "postman.setNextRequest(\"Users/2\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users/2",
+      "request": { "method": "GET", "url": "{{base_url}}/users/2" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "pm.test(\"Same company as user1\", () => pm.expect(res.company.name).to.eql(pm.environment.get(\"company1\")));",
+              "postman.setNextRequest(\"Book\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Book",
+      "request": { "method": "GET", "url": "{{base_url}}/book/123" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "postman.setNextRequest(\"Items\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Items",
+      "request": { "method": "GET", "url": "{{base_url}}/items?page={{nextPage}}" },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "if (!pm.environment.get(\"nextPage\")) {",
+              "   pm.environment.set(\"nextPage\", 1);",
+              "   pm.environment.set(\"allItems\", \"[]\");",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let res = pm.response.json();",
+              "let allItems = JSON.parse(pm.environment.get(\"allItems\"));",
+              "allItems = allItems.concat(res.items);",
+              "pm.environment.set(\"allItems\", JSON.stringify(allItems));",
+              "",
+              "if (res.nextPage) {",
+              "   pm.environment.set(\"nextPage\", res.nextPage);",
+              "   postman.setNextRequest(\"Items\");",
+              "} else {",
+              "   pm.test(\"Collected 20 items\", () => pm.expect(allItems.length).to.eql(20));",
+              "   pm.environment.unset(\"allItems\");",
+              "   pm.environment.unset(\"nextPage\");",
+              "   postman.setNextRequest(\"Unstable\");",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unstable",
+      "request": { "method": "GET", "url": "{{base_url}}/unstable" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 500) {",
+              "   let retries = parseInt(pm.environment.get(\"retries\") || 0);",
+              "   retries++;",
+              "   if (retries <= 3) {",
+              "       pm.environment.set(\"retries\", retries);",
+              "       postman.setNextRequest(\"Unstable\");",
+              "   } else {",
+              "       pm.test(\"Failed after retries\", () => pm.expect.fail(\"Max retries reached\"));",
+              "       pm.environment.unset(\"retries\");",
+              "       postman.setNextRequest(\"Event\");",
+              "   }",
+              "} else {",
+              "   pm.environment.unset(\"retries\");",
+              "   postman.setNextRequest(\"Event\");",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Event",
+      "request": { "method": "GET", "url": "{{base_url}}/event" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let ev = pm.response.json();",
+              "pm.test(\"End after start\", () => pm.expect(new Date(ev.end)).to.be.above(new Date(ev.start)));",
+              "postman.setNextRequest(\"Order\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order",
+      "request": { "method": "GET", "url": "{{base_url}}/order/1001" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let order = pm.response.json();",
+              "pm.test(\"Amount positive\", () => pm.expect(order.amount).to.be.above(0));",
+              "pm.test(\"Currency USD\", () => pm.expect(order.currency).to.eql(\"USD\"));",
+              "pm.test(\"Status valid\", () => pm.expect([\"confirmed\",\"pending\"]).to.include(order.status));",
+              "postman.setNextRequest(\"Sorted Users\");"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sorted Users",
+      "request": { "method": "GET", "url": "{{base_url}}/sorted-users" },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let arr = pm.response.json().users.map(u => u.id);",
+              "pm.test(\"IDs sorted descending\", () => pm.expect(arr).to.eql([...arr].sort((a,b) => b-a)));",
+              "pm.test(\"Response time under 200ms\", () => pm.expect(pm.response.responseTime).to.be.below(200));",
+              "postman.setNextRequest(null);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+
