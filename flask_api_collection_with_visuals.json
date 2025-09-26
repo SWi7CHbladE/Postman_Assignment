@@ -285,42 +285,50 @@
       ]
     },
     {
-      "name": "Simulate Token Expiry (then auto-refresh)",
-      "request": {
-        "method": "GET",
-        "url": "{{base_url}}/event"
-      },
-      "event": [
-        {
-          "listen": "prerequest",
-          "script": {
-            "exec": [
-              "if (!pm.environment.get('expirySimulated')) {",
-              "  // First run, mark the flag but don't expire",
-              "  pm.environment.set('expirySimulated', '1');",
-              "} else {",
-              "  // Second run, simulate expiry",
-              "  pm.environment.set('tokenExpiry', Date.now() - 1000);",
-              "  pm.environment.unset('authToken');",
-              "}"
-            ]
-          }
-        },
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "if (pm.environment.get('tokenExpiry') && !pm.environment.get('authToken')) {",
-              "  pm.test('Simulated expiry set', () => pm.expect(parseInt(pm.environment.get('tokenExpiry'), 10)).to.be.below(Date.now()));",
-              "  pm.execution.setNextRequest('Login');",
-              "} else {",
-              "  pm.test('First iteration completed without expiry', () => true);",
-              "}"
-            ]
-          }
-        }
-      ]
+  "name": "Simulate Token Expiry (then auto-refresh)",
+  "request": {
+    "method": "GET",
+    "url": "{{base_url}}/event"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "let flag = pm.environment.get('expirySimulated');",
+          "if (!flag) {",
+          "  // First run, mark it but don't expire yet",
+          "  pm.environment.set('expirySimulated', '1');",
+          "} else if (flag === '1') {",
+          "  // Second run, actually expire",
+          "  pm.environment.set('tokenExpiry', Date.now() - 1000);",
+          "  pm.environment.unset('authToken');",
+          "  pm.environment.set('expirySimulated', '2');",
+          "} else {",
+          "  // Already simulated once, nothing else to do",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "exec": [
+          "let flag = pm.environment.get('expirySimulated');",
+          "if (flag === '2') {",
+          "  pm.test('Token expiry simulated once', () => pm.expect(parseInt(pm.environment.get('tokenExpiry'), 10)).to.be.below(Date.now()));",
+          "  // Trigger one forced Login to refresh, then stop",
+          "  pm.execution.setNextRequest('Login');",
+          "  pm.environment.set('expirySimulated', 'done');",
+          "} else {",
+          "  pm.test('First pass without expiry', () => true);",
+          "  pm.execution.setNextRequest(null);",
+          "}"
+        ]
+      }
     }
+  ]
+}
   ],
   "protocolProfileBehavior": {}
 }
