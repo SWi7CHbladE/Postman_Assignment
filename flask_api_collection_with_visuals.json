@@ -1,0 +1,326 @@
+{
+  "info": {
+    "name": "Flask API Practice Collection (No Visualizers)",
+    "_postman_id": "d2f1b3c0-0000-4a22-b000-111111111111",
+    "description": "Collection for Flask API testing without visualizers. Includes authentication, pagination, retries, schema validation, and token expiry simulation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.expect(res).to.have.property('token');",
+              "pm.expect(res).to.have.property('expires_in');",
+              "pm.environment.set('authToken', res.token);",
+              "pm.environment.set('tokenExpiry', Date.now() + res.expires_in * 1000);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Protected",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/protected",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{authToken}}" }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/register",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{email}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.environment.set('username', 'user_' + Date.now());",
+              "pm.environment.set('email', 'test' + Math.floor(Math.random()*100000) + '@mail.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('has id', () => pm.expect(res.id).to.be.a('number'));",
+              "pm.test('username echoed', () => pm.expect(res.username).to.eql(pm.environment.get('username')));",
+              "pm.test('email echoed', () => pm.expect(res.email).to.include('@'));",
+              "pm.test('createdAt is valid date', () => pm.expect(new Date(res.createdAt).toString()).to.not.eql('Invalid Date'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Schema Validation",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/user/101"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('id is number', () => pm.expect(res.id).to.be.a('number'));",
+              "pm.test('email contains @', () => pm.expect(res.email).to.include('@'));",
+              "pm.test('roles is non-empty array', () => pm.expect(res.roles).to.be.an('array').that.is.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User 1",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/users/1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.environment.set('company1', res.company.name);",
+              "pm.test('User1 has company name', () => pm.expect(res.company.name).to.exist);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "User 2",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/users/2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Same company as user1', () => pm.expect(res.company.name).to.eql(pm.environment.get('company1')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Book",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/book/123"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('id is number', () => pm.expect(res.id).to.be.a('number'));",
+              "pm.test('title is string', () => pm.expect(res.title).to.be.a('string'));",
+              "pm.test('authors non-empty array', () => pm.expect(res.authors).to.be.an('array').that.is.not.empty);",
+              "pm.test('published is boolean', () => pm.expect(res.published).to.be.a('boolean'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Items (Paginate)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/items?page={{nextPage}}"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "if (!pm.environment.get('nextPage')) {",
+              "  pm.environment.set('nextPage', 1);",
+              "  pm.environment.set('allItems', '[]');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "let all = JSON.parse(pm.environment.get('allItems') || '[]');",
+              "all = all.concat(res.items);",
+              "pm.environment.set('allItems', JSON.stringify(all));",
+              "if (res.nextPage) { pm.environment.set('nextPage', res.nextPage); } else { pm.environment.unset('nextPage'); pm.environment.unset('allItems'); }",
+              "pm.test('items is array', () => pm.expect(res.items).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unstable (Retry up to 3)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/unstable"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 500) {",
+              "  let r = parseInt(pm.environment.get('retries') || '0', 10) + 1;",
+              "  if (r <= 3) {",
+              "    pm.environment.set('retries', String(r));",
+              "    pm.execution.setNextRequest('Unstable (Retry up to 3)');",
+              "  } else {",
+              "    pm.test('Max retries reached', () => pm.expect.fail('Gave up after 3 retries'));",
+              "    pm.environment.unset('retries');",
+              "  }",
+              "} else {",
+              "  pm.environment.unset('retries');",
+              "  pm.test('Succeeded after optional retries', () => pm.expect(pm.response.code).to.eql(200));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Event (Date)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/event"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const ev = pm.response.json();",
+              "const s = new Date(ev.start), e = new Date(ev.end);",
+              "pm.test('start is valid date', () => pm.expect(s.toString()).to.not.eql('Invalid Date'));",
+              "pm.test('end > start', () => pm.expect(e.getTime()).to.be.above(s.getTime()));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order (Multi-field validation)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/order/1001"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const o = pm.response.json();",
+              "pm.test('id is number', () => pm.expect(o.id).to.be.a('number'));",
+              "pm.test('amount is number', () => pm.expect(o.amount).to.be.a('number'));",
+              "pm.test('currency is USD', () => pm.expect(o.currency).to.eql('USD'));",
+              "pm.test('status valid', () => pm.expect(['confirmed','pending']).to.include(o.status));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sorted Users",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/sorted-users"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('users array exists', () => pm.expect(res.users).to.be.an('array').that.is.not.empty);",
+              "const ids = res.users.map(u => u.id);",
+              "pm.test('IDs sorted descending', () => pm.expect(ids).to.eql([...ids].sort((a,b)=>b-a)));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Simulate Token Expiry (then auto-refresh)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/event"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "if (!pm.environment.get('expirySimulated')) {",
+              "  // First run, mark the flag but don't expire",
+              "  pm.environment.set('expirySimulated', '1');",
+              "} else {",
+              "  // Second run, simulate expiry",
+              "  pm.environment.set('tokenExpiry', Date.now() - 1000);",
+              "  pm.environment.unset('authToken');",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.environment.get('tokenExpiry') && !pm.environment.get('authToken')) {",
+              "  pm.test('Simulated expiry set', () => pm.expect(parseInt(pm.environment.get('tokenExpiry'), 10)).to.be.below(Date.now()));",
+              "  pm.execution.setNextRequest('Login');",
+              "} else {",
+              "  pm.test('First iteration completed without expiry', () => true);",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "protocolProfileBehavior": {}
+}

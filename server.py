@@ -1,114 +1,143 @@
-from flask import Flask, jsonify, request
-import random
+from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
+import random
 
 app = Flask(__name__)
 
-# ----------------------------
-# Sample data
-# ----------------------------
+# -------------------------
+# Sample Data
+# -------------------------
+
+# Users for /users/<id> and /sorted-users
 users = [
     {"id": 1, "name": "Alice", "company": {"name": "OpenAI"}},
     {"id": 2, "name": "Bob", "company": {"name": "OpenAI"}},
-    {"id": 3, "name": "Charlie", "company": {"name": "Google"}}
+    {"id": 3, "name": "Charlie", "company": {"name": "Google"}},
+    {"id": 4, "name": "David", "company": {"name": "Google"}},
+    {"id": 5, "name": "Eve", "company": {"name": "Microsoft"}},
+    {"id": 6, "name": "Frank", "company": {"name": "Microsoft"}},
+    {"id": 7, "name": "Grace", "company": {"name": "OpenAI"}},
+    {"id": 8, "name": "Heidi", "company": {"name": "Amazon"}},
+    {"id": 9, "name": "Ivan", "company": {"name": "Amazon"}},
+    {"id": 10, "name": "Judy", "company": {"name": "Google"}},
 ]
 
-items = [{"id": i, "name": f"Item {i}"} for i in range(1, 21)]  # 20 items
+# Richer /items dataset (50 items, 10 per page) with prices
+items = [
+    {
+        "id": i,
+        "name": f"Item {i}",
+        "price": round(random.uniform(10, 200), 2)  # price between $10 and $200
+    }
+    for i in range(1, 51)
+]
 
-unstable_counter = 0
+# Orders with variety for visualization
+orders = {
+    1001: {"id": 1001, "amount": 50, "currency": "USD", "status": "confirmed"},
+    1002: {"id": 1002, "amount": 120, "currency": "USD", "status": "pending"},
+    1003: {"id": 1003, "amount": 200, "currency": "USD", "status": "confirmed"},
+    1004: {"id": 1004, "amount": 80, "currency": "USD", "status": "pending"},
+    1005: {"id": 1005, "amount": 300, "currency": "USD", "status": "confirmed"},
+}
 
-# ----------------------------
+# For unstable endpoint
+unstable_counter = {"count": 0}
+
+# -------------------------
 # Endpoints
-# ----------------------------
+# -------------------------
 
-@app.route("/login", methods=["POST"])
+@app.route('/login', methods=['POST'])
 def login():
-    return jsonify({"token": "abc123", "expires_in": 60})  # token with expiry
+    # Always return a token with expiry (30s)
+    return jsonify({
+        "token": "abc123",
+        "expires_in": 30
+    })
 
-@app.route("/protected", methods=["GET"])
+@app.route('/protected', methods=['GET'])
 def protected():
     auth = request.headers.get("Authorization")
     if auth == "Bearer abc123":
-        return jsonify({"message": "This is protected"})
+        return jsonify({"message": "Protected data access granted"})
     return jsonify({"error": "Unauthorized"}), 401
 
-@app.route("/register", methods=["POST"])
+@app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
     return jsonify({
-        "id": random.randint(1000, 9999),
+        "id": random.randint(100, 999),
         "username": data.get("username"),
         "email": data.get("email"),
         "createdAt": datetime.utcnow().isoformat() + "Z"
     })
 
-@app.route("/user/<int:user_id>", methods=["GET"])
-def get_user(user_id):
+@app.route('/user/<int:uid>', methods=['GET'])
+def get_user(uid):
+    # Return schema-valid user for validation
     return jsonify({
-        "id": user_id,
-        "email": f"user{user_id}@mail.com",
-        "roles": ["admin", "editor"]
+        "id": uid,
+        "username": f"user{uid}",
+        "email": f"user{uid}@example.com",
+        "roles": ["member", "tester"]
     })
 
-@app.route("/users/<int:user_id>", methods=["GET"])
-def get_user_with_company(user_id):
-    user = next((u for u in users if u["id"] == user_id), None)
-    if not user:
+@app.route('/users/<int:uid>', methods=['GET'])
+def get_user_with_company(uid):
+    u = next((u for u in users if u["id"] == uid), None)
+    if not u:
         return jsonify({"error": "User not found"}), 404
-    return jsonify(user)
+    return jsonify(u)
 
-@app.route("/book/<int:book_id>", methods=["GET"])
-def get_book(book_id):
+@app.route('/book/<int:bid>', methods=['GET'])
+def get_book(bid):
     return jsonify({
-        "id": book_id,
-        "title": "API Testing with Postman",
-        "authors": ["Jane Doe", "John Smith"],
+        "id": bid,
+        "title": "The Testing Book",
+        "authors": ["Author One", "Author Two"],
         "published": True
     })
 
-@app.route("/items", methods=["GET"])
+@app.route('/items', methods=['GET'])
 def get_items():
     page = int(request.args.get("page", 1))
-    per_page = 5
+    per_page = 10
     start = (page - 1) * per_page
     end = start + per_page
-    data = items[start:end]
+    page_items = items[start:end]
     next_page = page + 1 if end < len(items) else None
-    return jsonify({"items": data, "nextPage": next_page})
+    return jsonify({"items": page_items, "nextPage": next_page})
 
-@app.route("/unstable", methods=["GET"])
+@app.route('/unstable', methods=['GET'])
 def unstable():
-    global unstable_counter
-    unstable_counter += 1
-    if unstable_counter % 2 == 1:
-        return jsonify({"error": "Temporary failure"}), 500
-    return jsonify({"message": "Success after retry"})
+    unstable_counter["count"] += 1
+    if unstable_counter["count"] % 2 == 0:
+        return jsonify({"message": "Success after retry"})
+    return jsonify({"error": "Temporary failure"}), 500
 
-@app.route("/event", methods=["GET"])
+@app.route('/event', methods=['GET'])
 def event():
     start = datetime.utcnow()
-    end = start + timedelta(hours=1)
+    end = start + timedelta(hours=2)
     return jsonify({
+        "name": "Conference",
         "start": start.isoformat() + "Z",
         "end": end.isoformat() + "Z"
     })
 
-@app.route("/order/<int:order_id>", methods=["GET"])
-def order(order_id):
-    return jsonify({
-        "id": order_id,
-        "amount": random.randint(50, 500),
-        "currency": "USD",
-        "status": random.choice(["confirmed", "pending"])
-    })
+@app.route('/order/<int:oid>', methods=['GET'])
+def order(oid):
+    return jsonify(orders.get(oid, {"error": "not found"}))
 
-@app.route("/sorted-users", methods=["GET"])
+@app.route('/sorted-users', methods=['GET'])
 def sorted_users():
-    sorted_list = sorted(users, key=lambda u: u["id"], reverse=True)
-    return jsonify({"users": sorted_list})
+    # Return descending by ID
+    return jsonify({"users": sorted(users, key=lambda u: u["id"], reverse=True)})
 
-# ----------------------------
-# Run server
-# ----------------------------
+# -------------------------
+# Run
+# -------------------------
+
 if __name__ == "__main__":
     app.run(port=3000, debug=True)
