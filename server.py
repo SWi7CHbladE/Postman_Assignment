@@ -8,31 +8,47 @@ app = Flask(__name__)
 # Sample Data
 # -------------------------
 
-users = [
-    {"id": 1, "name": "Alice", "company": {"name": "OpenAI"}},
-    {"id": 2, "name": "Bob", "company": {"name": "OpenAI"}},
-    {"id": 3, "name": "Charlie", "company": {"name": "Google"}},
-    {"id": 4, "name": "David", "company": {"name": "Google"}},
-    {"id": 5, "name": "Eve", "company": {"name": "Microsoft"}},
-    {"id": 6, "name": "Frank", "company": {"name": "Microsoft"}},
-    {"id": 7, "name": "Grace", "company": {"name": "OpenAI"}},
-    {"id": 8, "name": "Heidi", "company": {"name": "Amazon"}},
-    {"id": 9, "name": "Ivan", "company": {"name": "Amazon"}},
-    {"id": 10, "name": "Judy", "company": {"name": "Google"}},
-]
+def get_default_users():
+    return [
+        {"id": 1, "name": "Alice", "company": {"name": "OpenAI"}},
+        {"id": 2, "name": "Bob", "company": {"name": "OpenAI"}},
+        {"id": 3, "name": "Charlie", "company": {"name": "Google"}},
+        {"id": 4, "name": "David", "company": {"name": "Google"}},
+        {"id": 5, "name": "Eve", "company": {"name": "Microsoft"}},
+        {"id": 6, "name": "Frank", "company": {"name": "Microsoft"}},
+        {"id": 7, "name": "Grace", "company": {"name": "OpenAI"}},
+        {"id": 8, "name": "Heidi", "company": {"name": "Amazon"}},
+        {"id": 9, "name": "Ivan", "company": {"name": "Amazon"}},
+        {"id": 10, "name": "Judy", "company": {"name": "Google"}},
+    ]
 
-items = [
-    {"id": i, "name": f"Item {i}", "price": round(random.uniform(10, 200), 2)}
-    for i in range(1, 21)
-]
+def get_default_items():
+    return [
+        {"id": i, "name": f"Item {i}", "price": round(random.uniform(10, 200), 2)}
+        for i in range(1, 21)
+    ]
 
-orders = {
-    1001: {"id": 1001, "amount": 50, "currency": "USD", "status": "confirmed"},
-    1002: {"id": 1002, "amount": 120, "currency": "USD", "status": "pending"},
-    1003: {"id": 1003, "amount": 200, "currency": "USD", "status": "confirmed"},
-    1004: {"id": 1004, "amount": 80, "currency": "USD", "status": "pending"},
-    1005: {"id": 1005, "amount": 300, "currency": "USD", "status": "confirmed"},
-}
+def get_default_orders():
+    return {
+        1001: {"id": 1001, "amount": 50, "currency": "USD", "status": "confirmed"},
+        1002: {"id": 1002, "amount": 120, "currency": "USD", "status": "pending"},
+        1003: {"id": 1003, "amount": 200, "currency": "USD", "status": "confirmed"},
+        1004: {"id": 1004, "amount": 80, "currency": "USD", "status": "pending"},
+        1005: {"id": 1005, "amount": 300, "currency": "USD", "status": "confirmed"},
+    }
+
+# Global state (will be reset per request)
+users = get_default_users()
+items = get_default_items()
+orders = get_default_orders()
+
+@app.before_request
+def reset_data():
+    """Reset all sample data before each request so tests stay independent."""
+    global users, items, orders
+    users = get_default_users()
+    items = get_default_items()
+    orders = get_default_orders()
 
 unstable_counter = {"count": 0}
 
@@ -93,6 +109,16 @@ def delete_user(uid):
     global users
     users = [u for u in users if u["id"] != uid]
     return jsonify({"message": f"User {uid} deleted"})
+
+@app.route('/book/<int:bid>', methods=['GET'])
+def get_book(bid):
+    return jsonify({
+        "id": bid,
+        "title": f"Sample Book {bid}",
+        "authors": ["Author A", "Author B"],
+        "published": bool(bid % 2)  # alternate True/False
+    })
+
 
 @app.route('/items', methods=['GET'])
 def get_items():
