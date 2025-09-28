@@ -8,7 +8,6 @@ app = Flask(__name__)
 # Sample Data
 # -------------------------
 
-# Users for /users/<id> and /sorted-users
 users = [
     {"id": 1, "name": "Alice", "company": {"name": "OpenAI"}},
     {"id": 2, "name": "Bob", "company": {"name": "OpenAI"}},
@@ -22,17 +21,11 @@ users = [
     {"id": 10, "name": "Judy", "company": {"name": "Google"}},
 ]
 
-# Richer /items dataset (50 items, 10 per page) with prices
 items = [
-    {
-        "id": i,
-        "name": f"Item {i}",
-        "price": round(random.uniform(10, 200), 2)  # price between $10 and $200
-    }
-    for i in range(1, 51)
+    {"id": i, "name": f"Item {i}", "price": round(random.uniform(10, 200), 2)}
+    for i in range(1, 21)
 ]
 
-# Orders with variety for visualization
 orders = {
     1001: {"id": 1001, "amount": 50, "currency": "USD", "status": "confirmed"},
     1002: {"id": 1002, "amount": 120, "currency": "USD", "status": "pending"},
@@ -41,7 +34,6 @@ orders = {
     1005: {"id": 1005, "amount": 300, "currency": "USD", "status": "confirmed"},
 }
 
-# For unstable endpoint
 unstable_counter = {"count": 0}
 
 # -------------------------
@@ -50,11 +42,7 @@ unstable_counter = {"count": 0}
 
 @app.route('/login', methods=['POST'])
 def login():
-    # Always return a token with expiry (30s)
-    return jsonify({
-        "token": "abc123",
-        "expires_in": 30
-    })
+    return jsonify({"token": "abc123", "expires_in": 30})
 
 @app.route('/protected', methods=['GET'])
 def protected():
@@ -75,7 +63,6 @@ def register():
 
 @app.route('/user/<int:uid>', methods=['GET'])
 def get_user(uid):
-    # Return schema-valid user for validation
     return jsonify({
         "id": uid,
         "username": f"user{uid}",
@@ -90,19 +77,27 @@ def get_user_with_company(uid):
         return jsonify({"error": "User not found"}), 404
     return jsonify(u)
 
-@app.route('/book/<int:bid>', methods=['GET'])
-def get_book(bid):
-    return jsonify({
-        "id": bid,
-        "title": "The Testing Book",
-        "authors": ["Author One", "Author Two"],
-        "published": True
-    })
+@app.route('/users/<int:uid>', methods=['PUT'])
+def update_user(uid):
+    u = next((u for u in users if u["id"] == uid), None)
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+    data = request.get_json()
+    u["name"] = data.get("name", u["name"])
+    if "company" in data:
+        u["company"] = {"name": data["company"]}
+    return jsonify(u)
+
+@app.route('/users/<int:uid>', methods=['DELETE'])
+def delete_user(uid):
+    global users
+    users = [u for u in users if u["id"] != uid]
+    return jsonify({"message": f"User {uid} deleted"})
 
 @app.route('/items', methods=['GET'])
 def get_items():
     page = int(request.args.get("page", 1))
-    per_page = 10
+    per_page = 5
     start = (page - 1) * per_page
     end = start + per_page
     page_items = items[start:end]
@@ -132,7 +127,6 @@ def order(oid):
 
 @app.route('/sorted-users', methods=['GET'])
 def sorted_users():
-    # Return descending by ID
     return jsonify({"users": sorted(users, key=lambda u: u["id"], reverse=True)})
 
 # -------------------------
